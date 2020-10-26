@@ -7,8 +7,9 @@ import time
 import tweepy
 from google.cloud import pubsub_v1
 from tweepy.streaming import StreamListener
-auth = tweepy.OAuthHandler() # fill in the keys
-auth.set_access_token() # fill in the keys
+auth = tweepy.OAuthHandler("XMeLenEr8FQeeczRi1q2ZYRZx", "naOsHhaGkNSysW3btmsog4ioKz0vS5eNdxsxOvAGGO8Kx7wwG4") # fill in the keys
+auth.set_access_token("XMeLenEr8FQeeczRi1q2ZYRZx", "naOsHhaGkNSysW3btmsog4ioKz0vS5eNdxsxOvAGGO8Kx7wwG4")
+# fill in the keys
 
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
 hastags = [] # add hashtags
