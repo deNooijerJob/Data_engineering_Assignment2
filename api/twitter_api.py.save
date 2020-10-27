@@ -1,3 +1,4 @@
+
 # coding: utf-8
 import datetime
 import json
@@ -6,21 +7,12 @@ import time
 import tweepy
 from google.cloud import pubsub_v1
 from tweepy.streaming import StreamListener
-import credentials
-
-# Config
-publisher = pubsub_v1.PublisherClient()
-topic_path = publisher.topic_path("data-engeneering-289509", "tweety")
-
-
-
-auth = tweepy.OAuthHandler(credentials.CONSUMER_KEY, credentials.CONSUMER_SECRET)
-auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
+auth = tweepy.OAuthHandler("XMeLenEr8FQeeczRi1q2ZYRZx", "naOsHhaGkNSysW3btmsog4ioKz0vS5eNdxsxOvAGGO8Kx7wwG4") # fill in the keys
+auth.set_access_token("XMeLenEr8FQeeczRi1q2ZYRZx", "naOsHhaGkNSysW3btmsog4ioKz0vS5eNdxsxOvAGGO8Kx7wwG4")
+# fill in the keys
 
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
-
-# Define the list of terms to listen to
-lst_hashtags = ["#covid", "#COVID", "#Covid", "#covid19"]
+hastags = [] # add hashtags
 
 # Method to push messages to pubsub
 def write_to_pubsub(data):
@@ -73,29 +65,19 @@ def reformat_tweet(tweet):
 
     return processed_doc
 
-# Custom listener class
-class StdOutListener(StreamListener):
-    """ A listener handles tweets that are received from the stream.
-    This is a basic listener that just pushes tweets to pubsub
-    """
-
+class TweetListener (StreamListener):
     def __init__(self):
         super(StdOutListener, self).__init__()
-        self._counter = 0
 
-    def on_data(self,data):
-        print(data)
-        write_to_pubsub(reformat_tweet(data))
-        self._counter += 1
-        return True
+    def on_status(self, data):
+        write_to_pubsub(reformat_tweet(data._json))
 
     def on_error(self, status):
         if status == 420:
             print("rate limit active")
             return False
 
+listener = TweetListener()
 
-# Start listening
-l = StdOutListener()
-stream = tweepy.Stream(auth, l, tweet_mode='extended')
-stream.filter(track=lst_hashtags)
+stream = tweepy.Stream(auth, listener, tweet_mode='extended')
+stream.filter(track=hastags)
