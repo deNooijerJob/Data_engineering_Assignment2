@@ -85,7 +85,7 @@ class StdOutListener(StreamListener):
 
     def on_data(self,data):
         print(data)
-        write_to_pubsub(reformat_tweet(data))
+        write_to_pubsub(reformat_tweet(json.dumps(data)))
         self._counter += 1
         return True
 
