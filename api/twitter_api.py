@@ -6,6 +6,7 @@ import time
 import tweepy
 from google.cloud import pubsub_v1
 from tweepy.streaming import StreamListener
+import credentials
 
 # Config
 publisher = pubsub_v1.PublisherClient()
@@ -17,8 +18,8 @@ with open("./account.json") as json_data:
     account_data = json.load(json_data)
 
 # Authenticate to the API
-auth = tweepy.OAuthHandler("XMeLenEr8FQeeczRi1q2ZYRZx", "naOsHhaGkNSysW3btmsog4ioKz0vS5eNdxsxOvAGGO8Kx7wwG4")
-auth.set_access_token("XMeLenEr8FQeeczRi1q2ZYRZx", "naOsHhaGkNSysW3btmsog4ioKz0vS5eNdxsxOvAGGO8Kx7wwG4")
+auth = tweepy.OAuthHandler(credentials.CONSUMER_KEY, credentials.CONSUMER_SECRET)
+auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
 
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
 
@@ -86,7 +87,7 @@ class StdOutListener(StreamListener):
         super(StdOutListener, self).__init__()
         self._counter = 0
 
-    def on_status(self, data):
+    def on_data(self, data):
         write_to_pubsub(reformat_tweet(data._json))
         self._counter += 1
         return True
