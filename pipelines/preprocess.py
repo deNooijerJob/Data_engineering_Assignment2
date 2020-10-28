@@ -1,3 +1,22 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import argparse
+import csv
+import logging
+import sys
+import time
+from datetime import datetime
+
+import apache_beam as beam
+from apache_beam.metrics.metric import Metrics
+from apache_beam.options.pipeline_options import GoogleCloudOptions
+from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.options.pipeline_options import SetupOptions
+from apache_beam.options.pipeline_options import StandardOptions
+from apache_beam.transforms import trigger
+
 class WriteToBigQuery(beam.PTransform):
     """Generate, format, and write BigQuery table row information."""
 
@@ -66,8 +85,7 @@ def run(argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--topic', type=str, help='Pub/Sub topic to read from')
-    parser.add_argument(
-        '--output_tweets', type=str, required=True, help='Pub/Sub topic to write team score')
+   
     parser.add_argument(
         '--subscription', type=str, help='Pub/Sub subscription to read from')
     parser.add_argument(
@@ -81,7 +99,12 @@ def run(argv=None, save_main_session=True):
         type=int,
         default=6,
         help='Numeric value of allowed data lateness, in minutes')
-
+    parser.add_argument(
+        '--dataset',
+        type=str,
+        required=True)
+    parser.add_argument(
+        '--table_name')
     args, pipeline_args = parser.parse_known_args(argv)
 
     if args.topic is None and args.subscription is None:
