@@ -8,7 +8,11 @@ WORKDIR /usr/src/assignment2
 COPY requirements.txt .
 
 # install the importsdfrom requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install google-cloud    
+RUN pip3 install google-cloud-vision
+RUN pip3 install google-cloud-pubsub
+RUN pip3 install --no-cache-dir -r requirements.txt
+
 
 #copy all local files to workspace
 COPY . .

@@ -1,4 +1,4 @@
 tweepy
-tweepy.streaming
 datetime
 google.cloud
+
