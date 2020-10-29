@@ -167,6 +167,7 @@ def run(argv=None, save_main_session=True):
         # Write to Bigquery
         (
             out_tweets
+            | 'getTweets' >> GetTweets(arg.allowed_late)
             | 'format' >> beam.Map(format_tweets)
             | 'store twitter posts' >> WriteToBigQuery(
                 args.table_name + '_tweets',
