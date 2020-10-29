@@ -49,17 +49,7 @@ class WriteToBigQuery(beam.PTransform):
                 | beam.io.WriteToBigQuery(
             self.table_name, self.dataset, self.project, self.get_schema()))
 
-class parseTweet(beam.DoFn):
-    """Parses the raw game event info into a Python dictionary.
-
-    Each event line has the following format:
-      username,teamname,score,timestamp_in_ms,readable_time
-
-    e.g.:
-      user2_AsparagusPig,AsparagusPig,10,1445230923951,2015-11-02 09:09:28.224
-
-    The human-readable time string is not used here.
-    """
+class ParseTweet(beam.DoFn):
 
     def __init__(self):
         # TODO(BEAM-6158): Revert the workaround once we can pickle super() on py3.
@@ -80,6 +70,37 @@ class parseTweet(beam.DoFn):
             # Log and count parse errors
             self.num_parse_errors.inc()
             logging.error('Parse error on "%s"', elem)
+
+class ExtractTweets(beam.PTransform):
+
+    def __init__(self, field):
+        # TODO(BEAM-6158): Revert the workaround once we can pickle super() on py3.
+        # super(ExtractAndSumScore, self).__init__()
+        beam.PTransform.__init__(self)
+        self.field = field
+
+    def expand(self, pcoll):
+        return (
+                pcoll
+                | beam.Map(lambda elem: (elem[self.field], elem['tweet']))
+        )
+
+class GetTweets(beam.PTransform):
+    def __init__(self, allowed_lateness):
+        beam.PTransform.__init__(self)
+        self.allowed_lateness_seconds = allowed_lateness * 60
+
+    def expand(self, pcoll):
+        return (
+            pcoll
+            | 'TweetGlobalWindows' >> beam.WindowInto(
+            beam.window.GlobalWindows(),
+            trigger=trigger.Repeatedly(trigger.AfterCount(10)),
+            accumulation_mode=trigger.AccumulationMode.ACCUMULATING,
+            allowed_lateness=self.allowed_lateness_seconds)
+            # Extract and sum username/score pairs from the event data.
+            | 'ExtractTweets' >> ExtractTweets()
+        )
 
 
 def run(argv=None, save_main_session=True):
@@ -134,8 +155,8 @@ def run(argv=None, save_main_session=True):
         out_tweets = (
                 tweets
                 | 'DecodeString' >> beam.Map(lambda b: b.decode('utf-8'))
-                | 'ParseGameEventFn' >> beam.ParDo(parseTweet())
-                | 'AddEventTimestamps' >> beam.Map(
+                | 'ParseTweets' >> beam.ParDo(ParseTweet())
+                | 'AddTimestamps' >> beam.Map(
             lambda elem: beam.window.TimestampedValue(elem, elem['timestamp']))
         )
 
