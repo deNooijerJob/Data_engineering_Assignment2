@@ -99,7 +99,7 @@ class GetTweets(beam.PTransform):
             accumulation_mode=trigger.AccumulationMode.ACCUMULATING,
             allowed_lateness=self.allowed_lateness_seconds)
             # Extract and sum username/score pairs from the event data.
-            | 'ExtractTweets' >> ExtractTweets()
+            | 'ExtractTweets' >> ExtractTweets('user_id')
         )
 
 
