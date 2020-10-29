@@ -62,8 +62,8 @@ class ParseTweet(beam.DoFn):
             row = list(csv.reader([elem]))[0]
             print(row)
             yield {
-                'user_id': "a1234",
-                'tweet': "test test",
+                'user_id': row[1]['user_id'],
+                'tweet': row[0]['text'],
                 'timestamp': 12345
             }
         except:  # pylint: disable=bare-except
