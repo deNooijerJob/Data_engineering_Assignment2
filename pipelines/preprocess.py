@@ -70,10 +70,11 @@ class parseTweet(beam.DoFn):
     def process(self, elem):
         try:
             row = list(csv.reader([elem]))[0]
+            print(row)
             yield {
-                'user_id': row[1],
-                'tweet': row[0],
-                'timestamp': row[3]
+                'user_id': "a1234",
+                'tweet': "test test",
+                'timestamp': 12345
             }
         except:  # pylint: disable=bare-except
             # Log and count parse errors
@@ -139,7 +140,7 @@ def run(argv=None, save_main_session=True):
         )
 
         def format_tweets(tw):
-            (tweet, user_id) = tw
+            (tweet, user_id, timestamp) = tw
             return {'user_id': user_id, 'tweet': tweet}
 
         # Write to Bigquery
