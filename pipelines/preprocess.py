@@ -161,13 +161,13 @@ def run(argv=None, save_main_session=True):
         )
 
         def format_tweets(tw):
-            (tweet, user_id, timestamp) = tw
+            (tweet, user_id) = tw
             return {'user_id': user_id, 'tweet': tweet}
 
         # Write to Bigquery
         (
             out_tweets
-            | 'getTweets' >> GetTweets(arg.allowed_late)
+            | 'getTweets' >> GetTweets(args.allowed_lateness)
             | 'format' >> beam.Map(format_tweets)
             | 'store twitter posts' >> WriteToBigQuery(
                 args.table_name + '_tweets',
