@@ -3,12 +3,9 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import csv
 import logging
 import sys
 import json
-import time
-from datetime import datetime
 
 import apache_beam as beam
 from apache_beam.metrics.metric import Metrics
@@ -18,19 +15,13 @@ from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
+'''
+    writes the tweets to a bigquery database
+'''
 class WriteToBigQuery(beam.PTransform):
-    """Generate, format, and write BigQuery table row information."""
 
     def __init__(self, table_name, dataset, schema, project):
-        """Initializes the transform.
-        Args:
-          table_name: Name of the BigQuery table to use.
-          dataset: Name of the dataset to use.
-          schema: Dictionary in the format {'column_name': 'bigquery_type'}
-          project: Name of the Cloud project containing BigQuery table.
-        """
-        # TODO(BEAM-6158): Revert the workaround once we can pickle super() on py3.
-        # super(WriteToBigQuery, self).__init__()
+
         beam.PTransform.__init__(self)
         self.table_name = table_name
         self.dataset = dataset
@@ -38,7 +29,7 @@ class WriteToBigQuery(beam.PTransform):
         self.project = project
 
     def get_schema(self):
-        """Build the output table schema."""
+
         return ', '.join('%s:%s' % (col, self.schema[col]) for col in self.schema)
 
     def expand(self, pcoll):
@@ -50,33 +41,38 @@ class WriteToBigQuery(beam.PTransform):
                 | beam.io.WriteToBigQuery(
             self.table_name, self.dataset, self.project, self.get_schema()))
 
+
+'''
+    Initial preprocessing
+    
+    takes the input from pubsub as json and only keeps the usefull fields
+'''
 class ParseTweet(beam.DoFn):
 
     def __init__(self):
-        # TODO(BEAM-6158): Revert the workaround once we can pickle super() on py3.
-        # super(ParseGameEventFn, self).__init__()
         beam.DoFn.__init__(self)
         self.num_parse_errors = Metrics.counter(self.__class__, 'num_parse_errors')
 
     def process(self, elem):
         try:
-           # row = list(csv.reader([elem]))[0]
-            item = json.loads(elem)
+            item = json.loads(elem) # reads the element
             yield {
                 'user_id': item['user_id'],
                 'tweet': item['text'],
-                'timestamp': 12345
+                'timestamp': 12345 # TODO fix the timestamp
             }
         except:  # pylint: disable=bare-except
             # Log and count parse errors
             self.num_parse_errors.inc()
             logging.error('Parse error on "%s"', elem)
 
+
+'''
+    Extract the tweets from input stream
+'''
 class ExtractTweets(beam.PTransform):
 
     def __init__(self, field):
-        # TODO(BEAM-6158): Revert the workaround once we can pickle super() on py3.
-        # super(ExtractAndSumScore, self).__init__()
         beam.PTransform.__init__(self)
         self.field = field
 
@@ -85,7 +81,9 @@ class ExtractTweets(beam.PTransform):
                 pcoll
                 | beam.Map(lambda elem: (elem[self.field], elem['tweet']))
         )
-
+'''
+    get the initial tweets from the tweetstsream
+'''
 class GetTweets(beam.PTransform):
     def __init__(self, allowed_lateness):
         beam.PTransform.__init__(self)
@@ -103,7 +101,9 @@ class GetTweets(beam.PTransform):
             | 'ExtractTweets' >> ExtractTweets('user_id')
         )
 
-
+'''
+    main run loop
+'''
 def run(argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
 
@@ -153,12 +153,17 @@ def run(argv=None, save_main_session=True):
         else:
             tweets = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(topic=args.topic)
 
+        '''
+            first steps in the pipline
+        '''
         out_tweets = (
                 tweets
-                | 'DecodeString' >> beam.Map(lambda b: b.decode('utf-8'))
-                | 'ParseTweets' >> beam.ParDo(ParseTweet())
+                | 'DecodeString' >> beam.Map(lambda b: b.decode('utf-8')) # make sure that the tweets are in utf-8 base
+                | 'ParseTweets' >> beam.ParDo(ParseTweet()) # parse all the tweets
+                # TODO add another pre processing step ParDo??
+                # TODO train the model
                 | 'AddTimestamps' >> beam.Map(
-            lambda elem: beam.window.TimestampedValue(elem, elem['timestamp']))
+                    lambda elem: beam.window.TimestampedValue(elem, elem['timestamp'])) # add timestamps (why???)
         )
 
         def format_tweets(tw):
@@ -168,9 +173,9 @@ def run(argv=None, save_main_session=True):
         # Write to Bigquery
         (
             out_tweets
-            | 'getTweets' >> GetTweets(args.allowed_lateness)
-            | 'format output' >> beam.Map(format_tweets)
-            | 'store twitter posts' >> WriteToBigQuery(
+            | 'getTweets' >> GetTweets(args.allowed_lateness)  # get the tweets
+            | 'format output' >> beam.Map(format_tweets) # format the tweets
+            | 'store twitter posts' >> WriteToBigQuery( # write them to the db
                 args.table_name + '_tweets',
                 args.dataset, {
                     'user_id': 'STRING',
@@ -179,7 +184,9 @@ def run(argv=None, save_main_session=True):
                 options.view_as(GoogleCloudOptions).project)
         )
 
-
+'''
+    run the pipeline
+'''
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     run()

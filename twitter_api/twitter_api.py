@@ -26,7 +26,7 @@ lst_hashtags = ["#covid", "#COVID", "#Covid", "#covid19"]
 def write_to_pubsub(data):
     try:
         if data["lang"] == "en":
-            publisher.publish(topic_path, data=json.dumps({
+            publisher.publish(topic_path, data=json.dumps({ # TODO change the output fields according to model
                 "text": data["text"],
                 "user_id": data["user_id"],
                 "id": data["id"],
@@ -85,7 +85,6 @@ class StdOutListener(StreamListener):
 
     def on_data(self,data):
         data = json.loads(data)
-        print(data)
         write_to_pubsub(reformat_tweet(data))
         self._counter += 1
         return True
