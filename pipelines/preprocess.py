@@ -62,7 +62,6 @@ class ParseTweet(beam.DoFn):
         try:
            # row = list(csv.reader([elem]))[0]
             item = json.loads(elem)
-            print(row)
             yield {
                 'user_id': item['user_id'],
                 'tweet': item['text'],
