@@ -10,7 +10,7 @@ import credentials
 
 # Config
 publisher = pubsub_v1.PublisherClient()
-topic_path = publisher.topic_path("data-engeneering-289509", "tweety")
+topic_path = publisher.topic_path("regal-welder-289207", "tweety")
 
 
 
@@ -85,6 +85,7 @@ class StdOutListener(StreamListener):
 
     def on_data(self,data):
         data = json.loads(data)
+        print(data)
         write_to_pubsub(reformat_tweet(data))
         self._counter += 1
         return True
