@@ -169,7 +169,7 @@ def run(argv=None, save_main_session=True):
         (
             out_tweets
             | 'getTweets' >> GetTweets(args.allowed_lateness)
-            | 'format' >> beam.Map(format_tweets)
+            | 'format output' >> beam.Map(format_tweets)
             | 'store twitter posts' >> WriteToBigQuery(
                 args.table_name + '_tweets',
                 args.dataset, {
