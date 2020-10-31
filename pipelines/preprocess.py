@@ -15,6 +15,13 @@ from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import SnowballStemmer
+import re
+
+
+
 '''
     writes the tweets to a bigquery database
 '''
@@ -47,7 +54,26 @@ class WriteToBigQuery(beam.PTransform):
     
     takes the input from pubsub as json and only keeps the usefull fields
 '''
+
 class ParseTweet(beam.DoFn):
+
+
+    nltk.download('stopwords')
+    stop_words = stopwords.words("english")
+    stemmer = SnowballStemmer("english")
+    invalid_chars = "@\S+|https?:\S+|http?:\S|[^A-Za-z0-9]+"
+
+    def preprocess(tweet, stem = False):
+        text = re.sub(invalid_chars, ' ', str(tweet).lower()).strip()  # Remove link,user and special characters
+        tokens = []
+        for token in text.split():
+            if token not in stop_words:
+                if stem:
+                    tokens.append(stemmer.stem(token))
+                else:
+                    tokens.append(token)
+        pp_tweet = " ".join(tokens)
+        return pp_tweet
 
     def __init__(self):
         beam.DoFn.__init__(self)
@@ -56,11 +82,13 @@ class ParseTweet(beam.DoFn):
     def process(self, elem):
         try:
             item = json.loads(elem) # reads the element
+
             yield {
                 'user_id': item['user_id'],
-                'tweet': item['text'],
-                'timestamp': 12345 # TODO fix the timestamp
+                'tweet': self.preprocess(item['text']), #originally item['text']
+                'timestamp': item['posted_at'] # TODO fix the timestamp
             }
+
         except:  # pylint: disable=bare-except
             # Log and count parse errors
             self.num_parse_errors.inc()

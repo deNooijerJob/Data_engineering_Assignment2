@@ -30,7 +30,7 @@ def write_to_pubsub(data):
                 "text": data["text"],
                 "user_id": data["user_id"],
                 "id": data["id"],
-                "posted_at": datetime.datetime.fromtimestamp(data["created_at"]).strftime('%Y-%m-%d %H:%M:%S')
+                "posted_at": datetime.datetime.fromtimestamp(data["created_at"])#.strftime('%Y-%m-%d %H:%M:%S')
             }).encode("utf-8"), tweet_id=str(data["id"]).encode("utf-8"))
     except Exception as e:
         raise
