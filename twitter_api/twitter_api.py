@@ -25,12 +25,13 @@ lst_hashtags = ["#covid", "#COVID", "#Covid", "#covid19"]
 # Method to push messages to pubsub
 def write_to_pubsub(data):
     try:
+        print(data)
         if data["lang"] == "en":
             publisher.publish(topic_path, data=json.dumps({ # TODO change the output fields according to model
                 "text": data["text"],
                 "user_id": data["user_id"],
                 "id": data["id"],
-                "posted_at": datetime.datetime.fromtimestamp(data["created_at"])#.strftime('%Y-%m-%d %H:%M:%S')
+                "posted_at": data['created_at'] #datetime.datetime.fromtimestamp(data["created_at"]) #.strftime('%Y-%m-%d %H:%M:%S')
             }).encode("utf-8"), tweet_id=str(data["id"]).encode("utf-8"))
     except Exception as e:
         raise
@@ -85,7 +86,7 @@ class StdOutListener(StreamListener):
 
     def on_data(self,data):
         data = json.loads(data)
-        print(data)
+       # print(data)
         write_to_pubsub(reformat_tweet(data))
         self._counter += 1
         return True

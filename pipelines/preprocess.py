@@ -85,7 +85,7 @@ class ParseTweet(beam.DoFn):
             yield {
                 'tweet': pp_tweet, 
                 'user_id': item['user_id'],
-                'timestamp': 1234567 
+                'time_stamp': int(item['posted_at']) 
             }
 
         except:  # pylint: disable=bare-except
@@ -121,7 +121,7 @@ class GetTweets(beam.PTransform):
             pcoll
             | 'TweetGlobalWindows' >> beam.WindowInto(
             beam.window.GlobalWindows(),
-            trigger=trigger.Repeatedly(trigger.AfterCount(10)),
+            trigger=trigger.Repeatedly(trigger.AfterCount(50)),
             accumulation_mode=trigger.AccumulationMode.ACCUMULATING,
             allowed_lateness=self.allowed_lateness_seconds)
             # Extract and sum username/score pairs from the event data.
@@ -189,13 +189,12 @@ def run(argv=None, save_main_session=True):
                 | 'ParseTweets' >> beam.ParDo(ParseTweet()) # parse all the tweets
                 # TODO add another pre processing step ParDo??
                 # TODO train the model
-                | 'AddTimestamps' >> beam.Map(
-                    lambda elem: beam.window.TimestampedValue(elem, elem['timestamp'])) # add timestamps (why???)
+                                
         )
 
         def format_tweets(tw):
-            (user_id, tweet) = tw
-            return {'user_id': user_id, 'tweet': tweet}
+            (user_id, tweet, timestamp) = tw
+            return {'user_id': user_id, 'tweet': tweet, 'time_stamp': timestamp}
 
         # Write to Bigquery
         (
@@ -206,7 +205,8 @@ def run(argv=None, save_main_session=True):
                 args.table_name + '_tweets',
                 args.dataset, {
                     'tweet': 'STRING',
-	            'user_id': 'STRING'
+	            'user_id': 'STRING',
+                    'time_stamp': 'INT64'
                     
                 },
                 options.view_as(GoogleCloudOptions).project)
