@@ -71,20 +71,21 @@ class ParseTweet(beam.DoFn):
         try:
             item = json.loads(elem) # reads the element
 
-            text = re.sub(invalid_chars, ' ', str(item['text']).lower()).strip()  # Remove link,user and special characters
-            tokens = []
+            stem = False
+            text = re.sub(self.invalid_chars, ' ', str(item['text']).lower()).strip()  # Remove link,user and special characters
+            tokens = []           
             for token in text.split():
-                if token not in stop_words:
+           	 if token not in self.stop_words:
                     if stem:
-                        tokens.append(stemmer.stem(token))
+                        tokens.append(self.stemmer.stem(token))
                     else:
                         tokens.append(token)
             pp_tweet = " ".join(tokens)
 
             yield {
                 'user_id': item['user_id'],
-                'tweet': pp_tweet, #originally item['text']
-                'timestamp': 1234567 # TODO fix the timestamp
+                'tweet': pp_tweet, 
+                'timestamp': 1234567 
             }
 
         except:  # pylint: disable=bare-except
