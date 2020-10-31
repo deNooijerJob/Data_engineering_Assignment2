@@ -1,5 +1,7 @@
 future
 argparse
 datetime 
-apache_beam 
+apache_beam
+nltk
+re
 
