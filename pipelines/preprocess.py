@@ -63,18 +63,6 @@ class ParseTweet(beam.DoFn):
     stemmer = SnowballStemmer("english")
     invalid_chars = "@\S+|https?:\S+|http?:\S|[^A-Za-z0-9]+"
 
-    def preprocess(tweet, stem = False):
-        text = re.sub(invalid_chars, ' ', str(tweet).lower()).strip()  # Remove link,user and special characters
-        tokens = []
-        for token in text.split():
-            if token not in stop_words:
-                if stem:
-                    tokens.append(stemmer.stem(token))
-                else:
-                    tokens.append(token)
-        pp_tweet = " ".join(tokens)
-        return pp_tweet
-
     def __init__(self):
         beam.DoFn.__init__(self)
         self.num_parse_errors = Metrics.counter(self.__class__, 'num_parse_errors')
@@ -83,10 +71,20 @@ class ParseTweet(beam.DoFn):
         try:
             item = json.loads(elem) # reads the element
 
+            text = re.sub(invalid_chars, ' ', str(item['text']).lower()).strip()  # Remove link,user and special characters
+            tokens = []
+            for token in text.split():
+                if token not in stop_words:
+                    if stem:
+                        tokens.append(stemmer.stem(token))
+                    else:
+                        tokens.append(token)
+            pp_tweet = " ".join(tokens)
+
             yield {
                 'user_id': item['user_id'],
-                'tweet': self.preprocess(item['text']), #originally item['text']
-                'timestamp': item['posted_at'] # TODO fix the timestamp
+                'tweet': pp_tweet, #originally item['text']
+                'timestamp': 1234567 # TODO fix the timestamp
             }
 
         except:  # pylint: disable=bare-except
