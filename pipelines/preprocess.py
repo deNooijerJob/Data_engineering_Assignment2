@@ -83,8 +83,8 @@ class ParseTweet(beam.DoFn):
             pp_tweet = " ".join(tokens)
 
             yield {
-                'user_id': item['user_id'],
                 'tweet': pp_tweet, 
+                'user_id': item['user_id'],
                 'timestamp': 1234567 
             }
 
@@ -194,7 +194,7 @@ def run(argv=None, save_main_session=True):
         )
 
         def format_tweets(tw):
-            (tweet, user_id) = tw
+            (user_id, tweet) = tw
             return {'user_id': user_id, 'tweet': tweet}
 
         # Write to Bigquery
@@ -205,8 +205,9 @@ def run(argv=None, save_main_session=True):
             | 'store twitter posts' >> WriteToBigQuery( # write them to the db
                 args.table_name + '_tweets',
                 args.dataset, {
-                    'user_id': 'STRING',
                     'tweet': 'STRING',
+	            'user_id': 'STRING'
+                    
                 },
                 options.view_as(GoogleCloudOptions).project)
         )
