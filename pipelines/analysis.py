@@ -16,6 +16,11 @@ from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
 
+def Sentiment_Analysis(trump_tweets, biden_tweets):
+    return ['{ "accuracy": %0.3f,  "loss": %0.3f }' % (1, 1)]
+
+
+
 def run ( argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
 
@@ -36,10 +41,16 @@ def run ( argv=None, save_main_session=True):
                 use_standard_sql=True))
         )
 
-        biden _data = (
+        biden_data = (
             p | 'Query biden Tweets' >> beam.io.Read(beam.io.BigQuerySource(
                 query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
                 use_standard_sql=True))
+        )
+
+        sentiment = (
+            p | 'Predict Sentiment' >> beam.FlatMap(
+                    Sentiment_Analysis, trump_tweets=trump_data, biden_tweets=biden_data
+                )
         )
 
 if __name__ == '__main__':
