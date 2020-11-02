@@ -30,10 +30,16 @@ def run ( argv=None, save_main_session=True):
     pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
 
     with beam.Pipeline(options=pipeline_options) as p:
-        predict_data = (
-                p | 'Query Table' >> beam.io.Read(beam.io.BigQuerySource(
-                    query='SELECT * FROM `data-engeneering-289509.tweetdata.sentiment_tweets`',
-                    use_standard_sql=True))
+        trump_data = (
+            p | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
+                query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
+                use_standard_sql=True))
+        )
+
+        biden _data = (
+            p | 'Query biden Tweets' >> beam.io.Read(beam.io.BigQuerySource(
+                query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
+                use_standard_sql=True))
         )
 
 if __name__ == '__main__':
