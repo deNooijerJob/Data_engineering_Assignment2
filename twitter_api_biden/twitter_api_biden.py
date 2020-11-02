@@ -10,7 +10,7 @@ import credentials
 
 # Config
 publisher = pubsub_v1.PublisherClient()
-topic_path_biden = publisher.topic_path("data-engeneering-289509", "tweety_biden")
+topic_path_biden = publisher.topic_path("regal-welder-289207", "tweety_biden")
 
 auth = tweepy.OAuthHandler(credentials.CONSUMER_KEY, credentials.CONSUMER_SECRET)
 auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
