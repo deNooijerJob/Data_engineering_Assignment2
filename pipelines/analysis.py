@@ -16,8 +16,19 @@ from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
 
-def sentiment_Analysis(tweets):
-    return ['{ "accuracy": %0.3f,  "loss": %0.3f }' % (1, 1)]
+class Sentiment_Analysis(beam.DoFn):
+    def __init__(self):
+        beam.DoFn.__init__(self)
+        self.num_parse_errors = Metrics.counter(self.__class__, 'num_parse_errors')
+
+    def process(self, tweets):
+        result = None
+        try:
+            result = ['{ "accuracy": %0.3f,  "loss": %0.3f }' % (1, 1)]
+        except:
+            self.num_parse_errors.inc()
+            logging.error('Parse error on "%s"', tweets)
+        return result
 
 
 
