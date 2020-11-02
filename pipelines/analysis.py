@@ -16,7 +16,7 @@ from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
 
-def Sentiment_Analysis(trump_tweets, biden_tweets):
+def sentiment_Analysis(tweets):
     return ['{ "accuracy": %0.3f,  "loss": %0.3f }' % (1, 1)]
 
 
@@ -35,23 +35,22 @@ def run ( argv=None, save_main_session=True):
     pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
 
     with beam.Pipeline(options=pipeline_options) as p:
-        trump_data = (
-            p | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
+        trump_sentiment = (
+            p
+            | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
                 query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
+            | 'Analyse sentiment' >> beam.parDo(sentiment_Analysis())
         )
 
-        biden_data = (
-            p | 'Query biden Tweets' >> beam.io.Read(beam.io.BigQuerySource(
-                query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
-                use_standard_sql=True))
+        trump_sentiment = (
+                p
+                | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
+            query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
+            use_standard_sql=True))
+                | 'Analyse sentiment' >> beam.parDo(sentiment_Analysis())
         )
 
-        sentiment = (
-            p | 'Predict Sentiment' >> beam.FlatMap(
-                    Sentiment_Analysis, trump_tweets=trump_data, biden_tweets=biden_data
-                )
-        )
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
