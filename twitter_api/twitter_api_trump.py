@@ -10,9 +10,7 @@ import credentials
 
 # Config
 publisher = pubsub_v1.PublisherClient()
-topic_path = publisher.topic_path("data-engeneering-289509", "tweety") # TODO two topics (also in GCP)
-
-
+topic_path_trump = publisher.topic_path("data-engeneering-289509", "tweety_trump")
 
 auth = tweepy.OAuthHandler(credentials.CONSUMER_KEY, credentials.CONSUMER_SECRET)
 auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
@@ -20,14 +18,13 @@ auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
 
 # Define the list of terms to listen to
-trump_hashtags = ["#covid", "#COVID", "#Covid", "#covid19"] # TODO change this
-biden_hastags = ["#covid", "#COVID", "#Covid", "#covid19"]
+trump_hashtags = ["#Trump", "#DonaldTrump", "#Donald", "#Trump2020", "#TrumpPence", "#TrumpPence2020"]
 
-# Method to push messages to pubsub # TODO duplicate for biden / trump
+# Method to push messages to pubsub
 def write_to_pubsub(data):
     try:
         if data["lang"] == "en":
-            publisher.publish(topic_path, data=json.dumps({ # TODO change the output fields according to model
+            publisher.publish(topic_path_trump, data=json.dumps({ # TODO change the output fields according to model
                 "text": data["text"],
                 "user_id": data["user_id"],
                 "id": data["id"],
@@ -79,10 +76,6 @@ class StdOutListener(StreamListener): # Don't touch this
     """ A listener handles tweets that are received from the stream.
     This is a basic listener that just pushes tweets to pubsub
     """
-    topic = None
-
-    def setTopic(self, string):
-        self.topic = string
 
     def __init__(self):
         super(StdOutListener, self).__init__()
@@ -90,10 +83,7 @@ class StdOutListener(StreamListener): # Don't touch this
 
     def on_data(self,data):
         data = json.loads(data)
-        if self.topic == 'trump':
-            write_to_pubsub(reformat_tweet(data))
-        elif self.topic == 'biden':
-            write_to_pubsub(reformat_tweet(data)) # TODO maak dit een biden functie
+        write_to_pubsub(reformat_tweet(data))
         self._counter += 1
         return True
 
@@ -105,13 +95,8 @@ class StdOutListener(StreamListener): # Don't touch this
 
 # Start listening
 trump_api = StdOutListener()
-trump_api.setTopic('trump')
 stream_trump = tweepy.Stream(auth, trump_api, tweet_mode='extended')
 stream_trump.filter(track=trump_hashtags)
 
-# Start listening
-biden_api = StdOutListener()
-biden_api.setTopic('biden')
-stream_biden = tweepy.Stream(auth, biden_api, tweet_mode='extended')
-stream_biden.filter(track=biden_hashtags)
+
 
