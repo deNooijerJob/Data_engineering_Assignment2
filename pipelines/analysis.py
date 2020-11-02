@@ -113,16 +113,16 @@ def run ( argv=None, save_main_session=True):
             | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
                 query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
-            | 'Analyse sentiment' >> beam.parDo(Sentiment_Analysis(project_id=known_args.pid,
+            | 'Analyse sentiment trump' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
                                                                           bucket_name=known_args.mbucket))
         )
 
-        trump_sentiment = (
+        biden_sentiment = (
                 p
-                | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
+                | 'Query biden tweets' >> beam.io.Read(beam.io.BigQuerySource(
             query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
             use_standard_sql=True))
-                | 'Analyse sentiment' >> beam.parDo(Sentiment_Analysis(project_id=known_args.pid,
+                | 'Analyse sentiment biden' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
                                                                         bucket_name=known_args.mbucket))
         )
 
