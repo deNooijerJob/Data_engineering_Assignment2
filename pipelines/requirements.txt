@@ -2,7 +2,6 @@ future
 argparse
 datetime 
 apache_beam 
-pickle
 tensorflow
 gensim
 keras
