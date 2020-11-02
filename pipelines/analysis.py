@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import time
 import sys
 import json
 
@@ -12,28 +13,89 @@ from apache_beam.metrics.metric import Metrics
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
+from google.cloud import storage
+import pickle
+from keras.preprocessing.sequence import pad_sequences
+
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
 
 class Sentiment_Analysis(beam.DoFn):
-    def __init__(self):
-        beam.DoFn.__init__(self)
-        self.num_parse_errors = Metrics.counter(self.__class__, 'num_parse_errors')
+    def __init__(self, project_id, bucket_name):
+        # SENTIMENT
+        self.POSITIVE = "POSITIVE"
+        self.NEGATIVE = "NEGATIVE"
+        self.NEUTRAL = "NEUTRAL"
+        self.SENTIMENT_THRESHOLDS = (0.4, 0.7)
+        self._model = None
+        self._modelW2W = None
+        self._tokenizer = None
+        self._encoder = None
+        self._project_id = project_id
+        self._bucket_name = bucket_name
+
+    def setup(self):
+        logging.info("MyPredictDoFn initialisation. Load Model")
+        client = storage.Client(project=self._project_id)
+        bucket = client.get_bucket(self._bucket_name)
+
+        blob_model = bucket.blob('models/model.h5')
+        blob_modelW2W = bucket.blob('models/model.h5')
+        blob_tokenizer = bucket.blob('models/model.h5')
+        blob_encoder = bucket.blob('models/model.h5')
+
+        blob_model.download_to_filename('downloaded_model.h5')
+        blob_tokenizer.download_to_filename('downloaded_tokenizer.pkl')
+        blob_modelW2W.download_to_filename('downloaded_model.w2w')
+        blob_encoder.download_to_filename('downloaded_encoder.pkl')
+
+        self._model = load_model('downloaded_model.h5')
+        self._modelW2W = pickle.load(open("downloaded_model.w2w", 'rb'))
+        self._tokenizer = pickle.load(open("downloaded_tokenizer.pkl", "rb"))
+        self._encoder = pickle.load(open("downloaded_encoder.pkl", "rb"))
+
+    def decode_sentiment(self, score, include_neutral=True):
+        if include_neutral:
+            label = self.NEUTRAL
+            if score <= self.SENTIMENT_THRESHOLDS[0]:
+                label = self.NEGATIVE
+            elif score >= self.SENTIMENT_THRESHOLDS[1]:
+                label = self.POSITIVE
+
+            return label
+        else:
+            return self.NEGATIVE if score < 0.5 else self.POSITIVE
+
 
     def process(self, tweets):
-        result = None
-        try:
-            result = ['{ "accuracy": %0.3f,  "loss": %0.3f }' % (1, 1)]
-        except:
-            self.num_parse_errors.inc()
-            logging.error('Parse error on "%s"', tweets)
-        return result
+        score = 0
+        for tweet in tweets:
+            # Tokenize text
+            x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet]), maxlen=self.SEQUENCE_LENGTH)
+            # Predict
+            score += self._model.predict([x_test])[0]
+            # Decode sentiment
+
+        avg_score = score / len(tweets)
+        label = self.decode_sentiment(avg_score, include_neutral=True)
+
+        return {"General Sentiment": label, "Average Score": float(avg_score)}
 
 
 
 def run ( argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--pid',
+        dest='pid',
+        help='project id')
+
+    parser.add_argument(
+        '--mbucket',
+        dest='mbucket',
+        help='model bucket name')
 
     known_args, pipeline_args = parser.parse_known_args(argv)
 
@@ -51,7 +113,8 @@ def run ( argv=None, save_main_session=True):
             | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
                 query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
-            | 'Analyse sentiment' >> beam.parDo(Sentiment_Analysis())
+            | 'Analyse sentiment' >> beam.parDo(Sentiment_Analysis(project_id=known_args.pid,
+                                                                          bucket_name=known_args.mbucket))
         )
 
         trump_sentiment = (
@@ -59,7 +122,8 @@ def run ( argv=None, save_main_session=True):
                 | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
             query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
             use_standard_sql=True))
-                | 'Analyse sentiment' >> beam.parDo(sentiment_Analysis())
+                | 'Analyse sentiment' >> beam.parDo(Sentiment_Analysis(project_id=known_args.pid,
+                                                                        bucket_name=known_args.mbucket))
         )
 
 
