@@ -10,7 +10,7 @@ import credentials
 
 # Config
 publisher = pubsub_v1.PublisherClient()
-topic_path = publisher.topic_path("data-engeneering-289509", "tweety")
+topic_path = publisher.topic_path("data-engeneering-289509", "tweety") # TODO two topics (also in GCP)
 
 
 
@@ -20,9 +20,10 @@ auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
 
 # Define the list of terms to listen to
-lst_hashtags = ["#covid", "#COVID", "#Covid", "#covid19"]
+trump_hashtags = ["#covid", "#COVID", "#Covid", "#covid19"] # TODO change this
+biden_hastags = ["#covid", "#COVID", "#Covid", "#covid19"]
 
-# Method to push messages to pubsub
+# Method to push messages to pubsub # TODO duplicate for biden / trump
 def write_to_pubsub(data):
     try:
         if data["lang"] == "en":
@@ -35,7 +36,7 @@ def write_to_pubsub(data):
     except Exception as e:
         raise
 
-# Method to format a tweet from tweepy
+# Method to format a tweet from tweepy # TODO dont touch this
 def reformat_tweet(tweet):
     x = tweet
 
@@ -74,10 +75,14 @@ def reformat_tweet(tweet):
     return processed_doc
 
 # Custom listener class
-class StdOutListener(StreamListener):
+class StdOutListener(StreamListener): # Don't touch this
     """ A listener handles tweets that are received from the stream.
     This is a basic listener that just pushes tweets to pubsub
     """
+    topic = None
+
+    def setTopic(self, string):
+        self.topic = string
 
     def __init__(self):
         super(StdOutListener, self).__init__()
@@ -85,7 +90,10 @@ class StdOutListener(StreamListener):
 
     def on_data(self,data):
         data = json.loads(data)
-        write_to_pubsub(reformat_tweet(data))
+        if self.topic == 'trump':
+            write_to_pubsub(reformat_tweet(data))
+        elif self.topic == 'biden':
+            write_to_pubsub(reformat_tweet(data)) # TODO maak dit een biden functie
         self._counter += 1
         return True
 
@@ -96,6 +104,14 @@ class StdOutListener(StreamListener):
 
 
 # Start listening
-l = StdOutListener()
-stream = tweepy.Stream(auth, l, tweet_mode='extended')
-stream.filter(track=lst_hashtags)
+trump_api = StdOutListener()
+trump_api.setTopic('trump')
+stream_trump = tweepy.Stream(auth, trump_api, tweet_mode='extended')
+stream_trump.filter(track=trump_hashtags)
+
+# Start listening
+biden_api = StdOutListener()
+biden_api.setTopic('biden')
+stream_biden = tweepy.Stream(auth, biden_api, tweet_mode='extended')
+stream_biden.filter(track=biden_hashtags)
+
