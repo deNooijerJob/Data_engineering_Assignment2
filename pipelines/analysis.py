@@ -51,7 +51,7 @@ def run ( argv=None, save_main_session=True):
             | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
                 query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
-            | 'Analyse sentiment' >> beam.parDo(sentiment_Analysis())
+            | 'Analyse sentiment' >> beam.parDo(Sentiment_Analysis())
         )
 
         trump_sentiment = (
