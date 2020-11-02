@@ -2,4 +2,9 @@ future
 argparse
 datetime 
 apache_beam 
-
+tensorflow
+gensim
+keras
+pandas
+nltk
+google.cloud
