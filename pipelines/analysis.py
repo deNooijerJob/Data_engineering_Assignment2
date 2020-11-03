@@ -22,7 +22,7 @@ from apache_beam.transforms import trigger
 
 
 class Sentiment_Analysis(beam.DoFn):
-    def __init__(self, project_id, bucket_name):
+    def __init__(self, project_id, bucket_name, name):
         # SENTIMENT
         self.POSITIVE = "POSITIVE"
         self.NEGATIVE = "NEGATIVE"
@@ -32,6 +32,7 @@ class Sentiment_Analysis(beam.DoFn):
         self._tokenizer = None
         self._project_id = project_id
         self._bucket_name = bucket_name
+        self.name = name
     
     def unpickle(self):
         return pickle.load(open("downloaded_tokenizer.pkl", 'rb'))    
@@ -67,8 +68,9 @@ class Sentiment_Analysis(beam.DoFn):
     def process(self, tweets):
         score = 0
         for tweet in tweets:
+            logging.info(tweet)  
             # Tokenize text
-            x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet]), maxlen=300)
+            x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet['text']]), maxlen=300)
             # Predict
             score += self._model.predict([x_test])[0]
             # Decode sentiment
@@ -76,7 +78,7 @@ class Sentiment_Analysis(beam.DoFn):
         avg_score = score / len(tweets)
         label = self.decode_sentiment(avg_score, include_neutral=True)
 
-        return {"General Sentiment": label, "Average Score": float(avg_score)}
+        return {"name": self.name, "General Sentiment": label, "Average Score": float(avg_score)}
 
 
 
@@ -110,7 +112,7 @@ def run ( argv=None, save_main_session=True):
                 query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
             | 'Analyse sentiment trump' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
-                                                                          bucket_name=known_args.mbucket))
+                                                                          bucket_name=known_args.mbucket, name="Trump"))
         )
 
         biden_sentiment = (
@@ -119,7 +121,7 @@ def run ( argv=None, save_main_session=True):
             query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
             use_standard_sql=True))
                 | 'Analyse sentiment biden' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
-                                                                        bucket_name=known_args.mbucket))
+                                                                        bucket_name=known_args.mbucket, name="Biden"))
         )
 
         composed_result = ((trump_sentiment, biden_sentiment) | 'Merge sentiments' >> beam.Flatten())
