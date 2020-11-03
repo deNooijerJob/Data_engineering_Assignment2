@@ -139,7 +139,9 @@ def run(argv=None, save_main_session=True):
     parser.add_argument('--topic', type=str, help='Pub/Sub topic to read from')
 
     parser.add_argument(
-        '--subscription', type=str, help='Pub/Sub subscription to read from')
+        '--subscription_trump', type=str, help='Pub/Sub subscription to read from')
+    parser.add_argument(
+        '--subscription_biden', type=str, help='Pub/Sub subscription to read from')
     parser.add_argument(
         '--tweet_window_duration',
         type=int,
@@ -172,18 +174,26 @@ def run(argv=None, save_main_session=True):
     with beam.Pipeline(options=options) as p:
         # Read from PubSub into a PCollection.
         if args.subscription:
-            tweets = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(
-                subscription=args.subscription)
+            tweets_trump = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(
+                subscription_trump=args.subscription_trump)
+            tweets_biden = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(
+                subscription_biden=args.subscription_biden)
         else:
-            tweets = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(topic=args.topic)
+            tweets_trump = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(topic=args.topic_trump)
+            tweets_biden = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(topic=args.topic_biden)
         '''
             first steps in the pipline
         '''
-        out_tweets = (
-                tweets
-                | 'DecodeString' >> beam.Map(lambda b: b.decode('utf-8'))  # make sure that the tweets are in utf-8 base
-                | 'ParseTweets' >> beam.ParDo(ParseTweet())  # parse all the tweets
-            # TODO train the model
+        out_tweets_Trump = (
+                tweets_trump
+                | 'DecodeString Trump' >> beam.Map(lambda b: b.decode('utf-8'))  # make sure that the tweets are in utf-8 base
+                | 'ParseTweets Trump' >> beam.ParDo(ParseTweet())  # parse all the tweets
+
+        )
+        out_tweets_Biden = (
+                tweets_biden
+                | 'DecodeString Biden' >> beam.Map(lambda b: b.decode('utf-8'))  # make sure that the tweets are in utf-8 base
+                | 'ParseTweets Biden' >> beam.ParDo(ParseTweet())  # parse all the tweets
 
         )
 
@@ -193,11 +203,23 @@ def run(argv=None, save_main_session=True):
 
         # Write to Bigquery
         (
-                out_tweets
-                | 'getTweets' >> GetTweets(args.allowed_lateness)  # get the tweets
-                | 'format output' >> beam.Map(format_tweets)  # format the tweets
-                | 'store twitter posts' >> WriteToBigQuery(  # write them to the db
-            args.table_name + '_tweets',
+                out_tweets_Trump
+                | 'getTweets Trump' >> GetTweets(args.allowed_lateness)  # get the tweets
+                | 'format output Trump' >> beam.Map(format_tweets)  # format the tweets
+                | 'store twitter posts Trump' >> WriteToBigQuery(  # write them to the db
+            args.table_name + '_tweets_trump',
+            args.dataset, {
+                'tweet': 'STRING',
+                'user_id': 'STRING'  # timestamp not implemented
+            },
+            options.view_as(GoogleCloudOptions).project)
+        )
+        (
+                out_tweets_Biden
+                | 'getTweets Biden' >> GetTweets(args.allowed_lateness)  # get the tweets
+                | 'format output Biden' >> beam.Map(format_tweets)  # format the tweets
+                | 'store twitter posts Biden' >> WriteToBigQuery(  # write them to the db
+            args.table_name + '_tweets_biden',
             args.dataset, {
                 'tweet': 'STRING',
                 'user_id': 'STRING'  # timestamp not implemented
