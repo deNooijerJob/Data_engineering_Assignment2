@@ -10,9 +10,7 @@ import credentials
 
 # Config
 publisher = pubsub_v1.PublisherClient()
-topic_path = publisher.topic_path("data-engeneering-289509", "tweety")
-
-
+topic_path_biden = publisher.topic_path("regal-welder-289207", "tweety_biden")
 
 auth = tweepy.OAuthHandler(credentials.CONSUMER_KEY, credentials.CONSUMER_SECRET)
 auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
@@ -20,13 +18,13 @@ auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
 
 # Define the list of terms to listen to
-lst_hashtags = ["#covid", "#COVID", "#Covid", "#covid19"]
+biden_hashtags = ["#Biden", "#BidenHarris", "#Joe", "#JoeBiden", "#BidenHarris2020", "#Biden2020"]
 
 # Method to push messages to pubsub
 def write_to_pubsub(data):
     try:
         if data["lang"] == "en":
-            publisher.publish(topic_path, data=json.dumps({ # TODO change the output fields according to model
+            publisher.publish(topic_path_biden, data=json.dumps({ # TODO change the output fields according to model
                 "text": data["text"],
                 "user_id": data["user_id"],
                 "id": data["id"],
@@ -35,7 +33,7 @@ def write_to_pubsub(data):
     except Exception as e:
         raise
 
-# Method to format a tweet from tweepy
+# Method to format a tweet from tweepy # TODO dont touch this
 def reformat_tweet(tweet):
     x = tweet
 
@@ -74,7 +72,7 @@ def reformat_tweet(tweet):
     return processed_doc
 
 # Custom listener class
-class StdOutListener(StreamListener):
+class StdOutListener(StreamListener): # Don't touch this
     """ A listener handles tweets that are received from the stream.
     This is a basic listener that just pushes tweets to pubsub
     """
@@ -96,6 +94,7 @@ class StdOutListener(StreamListener):
 
 
 # Start listening
-l = StdOutListener()
-stream = tweepy.Stream(auth, l, tweet_mode='extended')
-stream.filter(track=lst_hashtags)
+biden_api = StdOutListener()
+stream_biden = tweepy.Stream(auth, biden_api, tweet_mode='extended')
+stream_biden.filter(track=biden_hashtags)
+

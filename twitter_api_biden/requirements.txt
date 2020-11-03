@@ -1,0 +1,11 @@
+tweepy
+datetime
+google.cloud
+json
+pickle
+tensorflow
+gensim
+keras
+pandas
+nltk
+
