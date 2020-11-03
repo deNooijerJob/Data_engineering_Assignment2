@@ -13,10 +13,10 @@ from apache_beam.metrics.metric import Metrics
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-from google.cloud import storage
+import google.cloud 
 import pickle
 from keras.preprocessing.sequence import pad_sequences
-
+from keras.models import load_model
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
@@ -37,7 +37,7 @@ class Sentiment_Analysis(beam.DoFn):
 
     def setup(self):
         logging.info("MyPredictDoFn initialisation. Load Model")
-        client = storage.Client(project=self._project_id)
+        client = google.cloud.storage.Client(project=self._project_id)
         bucket = client.get_bucket(self._bucket_name)
 
         blob_model = bucket.blob('models/model.h5')
