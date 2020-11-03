@@ -20,65 +20,61 @@ from keras.models import load_model
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
+def unpickle():
+        return pickle.load(open("downloaded_tokenizer.pkl", 'rb'))
 
-class Sentiment_Analysis(beam.DoFn):
-    def __init__(self, project_id, bucket_name, name):
-        # SENTIMENT
-        self.POSITIVE = "POSITIVE"
-        self.NEGATIVE = "NEGATIVE"
-        self.NEUTRAL = "NEUTRAL"
-        self.SENTIMENT_THRESHOLDS = (0.4, 0.7)
-        self._model = None
-        self._tokenizer = None
-        self._project_id = project_id
-        self._bucket_name = bucket_name
-        self.name = name
-    
-    def unpickle(self):
-        return pickle.load(open("downloaded_tokenizer.pkl", 'rb'))    
-   
-    def setup(self):
-        logging.info("MyPredictDoFn initialisation. Load Model")
-        client = storage.Client(project=self._project_id)
-        bucket = client.get_bucket(self._bucket_name)
 
-        blob_model = bucket.blob('models/model.h5')
-        blob_tokenizer = bucket.blob('models/tokenizer.pkl')
+def decode_sentiment(score, include_neutral=True):
+    # SENTIMENT
+    POSITIVE = "POSITIVE"
+    NEGATIVE = "NEGATIVE"
+    NEUTRAL = "NEUTRAL"
+    SENTIMENT_THRESHOLDS = (0.4, 0.7)
+    if include_neutral:
+        label = NEUTRAL
+        if score <= SENTIMENT_THRESHOLDS[0]:
+            label = NEGATIVE
+        elif score >= SENTIMENT_THRESHOLDS[1]:
+            label = POSITIVE
+
+        return label
+    else:
+        return NEGATIVE if score < 0.5 else POSITIVE
+
+
+
+def sentimentAnalysis (project_id, bucket_name, name, tweets):
+    project_id = project_id
+    bucket_name = bucket_name
+    name = name
+
+    logging.info("MyPredictDoFn initialisation. Load Model")
+    client = storage.Client(project=project_id)
+    bucket = client.get_bucket(bucket_name)
+
+    blob_model = bucket.blob('models/model.h5')
+    blob_tokenizer = bucket.blob('models/tokenizer.pkl')
        
-        blob_model.download_to_filename('downloaded_model.h5')
-        blob_tokenizer.download_to_filename('downloaded_tokenizer.pkl')
+    blob_model.download_to_filename('downloaded_model.h5')
+    blob_tokenizer.download_to_filename('downloaded_tokenizer.pkl')
        
-        self._model = load_model('downloaded_model.h5')
-        self._tokenizer = self.unpickle()
-       
+    model = load_model('downloaded_model.h5')
+    tokenizer = unpickle()
 
-    def decode_sentiment(self, score, include_neutral=True):
-        if include_neutral:
-            label = self.NEUTRAL
-            if score <= self.SENTIMENT_THRESHOLDS[0]:
-                label = self.NEGATIVE
-            elif score >= self.SENTIMENT_THRESHOLDS[1]:
-                label = self.POSITIVE
+    score = 0
+    for tweet in tweets:  # tweets {useris : job, tweet: text}
+        logging.info(tweet)
+        # Tokenize text
+        x_test = pad_sequences(tokenizer.texts_to_sequences([tweet['text']]), maxlen=300)
+        # Predict
+        score += model.predict([x_test])[0]
+        # Decode sentiment
 
-            return label
-        else:
-            return self.NEGATIVE if score < 0.5 else self.POSITIVE
+    avg_score = score / len(tweets)
+    label = decode_sentiment(avg_score, include_neutral=True)
 
+    return {"name": name, "General Sentiment": label, "Average Score": float(avg_score)}
 
-    def process(self, tweets):
-        score = 0
-        for tweet in tweets: # tweets {useris : job, tweet: text}
-            logging.info(tweet)  
-            # Tokenize text
-            x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet['text']]), maxlen=300)
-            # Predict
-            score += self._model.predict([x_test])[0]
-            # Decode sentiment
-
-        avg_score = score / len(tweets)
-        label = self.decode_sentiment(avg_score, include_neutral=True)
-
-        return {"name": self.name, "General Sentiment": label, "Average Score": float(avg_score)}
 
 
 
@@ -109,28 +105,35 @@ def run ( argv=None, save_main_session=True):
         trump_tweets = (
             p
             | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
-                query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
+                query='SELECT `tweet` FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
         )
 
         trump_sentiment = (
-                trump_tweets
-                | 'Analyse sentiment trump' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
-                                                                   bucket_name=known_args.mbucket, name="Trump"))
+                p
+                | 'Analyse sentiment trump' >> beam.FlatMap(
+                    sentimentAnalysis,
+                    project_id=known_args.pid,
+                    bucket_name=known_args.mbucket,
+                    name="Trump",
+                    tweets=beam.pvalue.AsList(trump_tweets))
         )
 
         biden_tweets = (
                 p
                 | 'Query biden tweets' >> beam.io.Read(beam.io.BigQuerySource(
-            query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
+            query='SELECT `tweet` FROM `data-engeneering-289509.tweetdata.biden`',
             use_standard_sql=True))
         )
 
         biden_sentiment = (
-                biden_tweets
-                | 'Analyse sentiment biden' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
-                                                                             bucket_name=known_args.mbucket,
-                                                                             name="Biden"))
+                p
+                | 'Analyse sentiment trump' >> beam.FlatMap(
+                    sentimentAnalysis,
+                    project_id=known_args.pid,
+                    bucket_name=known_args.mbucket,
+                    name="Biden",
+                    tweets=beam.pvalue.AsList(biden_tweets))
         )
 
         composed_result = ((trump_sentiment, biden_sentiment) | 'Merge sentiments' >> beam.Flatten())
