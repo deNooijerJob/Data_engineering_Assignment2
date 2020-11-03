@@ -13,7 +13,7 @@ from apache_beam.metrics.metric import Metrics
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-import google.cloud 
+from google.cloud import storage 
 import pickle
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import load_model
@@ -29,31 +29,27 @@ class Sentiment_Analysis(beam.DoFn):
         self.NEUTRAL = "NEUTRAL"
         self.SENTIMENT_THRESHOLDS = (0.4, 0.7)
         self._model = None
-        self._modelW2W = None
         self._tokenizer = None
-        self._encoder = None
         self._project_id = project_id
         self._bucket_name = bucket_name
-
+    
+    def unpickle(self):
+        return pickle.load(open("downloaded_tokenizer.pkl", 'rb'))    
+   
     def setup(self):
         logging.info("MyPredictDoFn initialisation. Load Model")
-        client = google.cloud.storage.Client(project=self._project_id)
+        client = storage.Client(project=self._project_id)
         bucket = client.get_bucket(self._bucket_name)
 
         blob_model = bucket.blob('models/model.h5')
-        blob_modelW2W = bucket.blob('models/model.h5')
-        blob_tokenizer = bucket.blob('models/model.h5')
-        blob_encoder = bucket.blob('models/model.h5')
-
+        blob_tokenizer = bucket.blob('models/tokenizer.pkl')
+       
         blob_model.download_to_filename('downloaded_model.h5')
         blob_tokenizer.download_to_filename('downloaded_tokenizer.pkl')
-        blob_modelW2W.download_to_filename('downloaded_model.w2w')
-        blob_encoder.download_to_filename('downloaded_encoder.pkl')
-
+       
         self._model = load_model('downloaded_model.h5')
-        self._modelW2W = pickle.load(open("downloaded_model.w2w", 'rb'))
-        self._tokenizer = pickle.load(open("downloaded_tokenizer.pkl", "rb"))
-        self._encoder = pickle.load(open("downloaded_encoder.pkl", "rb"))
+        self._tokenizer = self.unpickle()
+       
 
     def decode_sentiment(self, score, include_neutral=True):
         if include_neutral:
@@ -72,7 +68,7 @@ class Sentiment_Analysis(beam.DoFn):
         score = 0
         for tweet in tweets:
             # Tokenize text
-            x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet]), maxlen=self.SEQUENCE_LENGTH)
+            x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet]), maxlen=300)
             # Predict
             score += self._model.predict([x_test])[0]
             # Decode sentiment
