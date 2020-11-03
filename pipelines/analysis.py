@@ -13,6 +13,7 @@ from apache_beam.metrics.metric import Metrics
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
+from apache_beam.io import WriteToText as wtt
 from google.cloud import storage 
 import pickle
 from keras.preprocessing.sequence import pad_sequences
@@ -62,6 +63,7 @@ def sentimentAnalysis (project_id, bucket_name, name, tweets):
     tokenizer = unpickle()
 
     score = 0
+    logging.info(tweets)
     for tweet in tweets:  # tweets {useris : job, tweet: text}
         logging.info(tweet)
         # Tokenize text
@@ -73,10 +75,7 @@ def sentimentAnalysis (project_id, bucket_name, name, tweets):
     avg_score = score / len(tweets)
     label = decode_sentiment(avg_score, include_neutral=True)
 
-    return {"name": name, "General Sentiment": label, "Average Score": float(avg_score)}
-
-
-
+    return ['{"Name": %s, "sentiment": %s, "Score": %0.3f}' % (name, label, float(avg_score))]
 
 def run ( argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
@@ -107,37 +106,40 @@ def run ( argv=None, save_main_session=True):
             | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
                 query='SELECT `tweet` FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
+	    | beam.Map(lambda elem: elem['tweet'])
         )
 
         trump_sentiment = (
-                p
-                | 'Analyse sentiment trump' >> beam.FlatMap(
-                    sentimentAnalysis,
-                    project_id=known_args.pid,
-                    bucket_name=known_args.mbucket,
-                    name="Trump",
-                    tweets=beam.pvalue.AsList(trump_tweets))
+            p
+            | 'init trump list' >> beam.Create([])
+            | 'Analyse sentiment trump' >> beam.FlatMap(
+                sentimentAnalysis,
+                project_id=known_args.pid,
+                mbucket=known_args.mbucket,
+                name="Trump",
+                tweets=beam.pvalue.AsList(trump_tweets))
         )
 
         biden_tweets = (
-                p
-                | 'Query biden tweets' >> beam.io.Read(beam.io.BigQuerySource(
-            query='SELECT `tweet` FROM `data-engeneering-289509.tweetdata.biden`',
-            use_standard_sql=True))
+            p
+            | 'Query biden tweets' >> beam.io.Read(beam.io.BigQuerySource(
+                query='SELECT `tweet`  FROM `data-engeneering-289509.tweetdata.biden`',
+                use_standard_sql=True))
+            | beam.Map(lambda elem: elem['tweet'])
         )
 
         biden_sentiment = (
-                p
-                | 'Analyse sentiment trump' >> beam.FlatMap(
-                    sentimentAnalysis,
-                    project_id=known_args.pid,
-                    bucket_name=known_args.mbucket,
-                    name="Biden",
-                    tweets=beam.pvalue.AsList(biden_tweets))
+            p
+            | 'init biden list' >> beam.Create([])
+            | 'Analyse sentiment biden' >> beam.FlatMap(
+                sentimentAnalysis,
+                project_id=known_args.pid,
+                mbucket=known_args.mbucket,
+                name="Biden",
+                tweets=beam.pvalue.AsList(biden_tweets))
         )
 
         composed_result = ((trump_sentiment, biden_sentiment) | 'Merge sentiments' >> beam.Flatten())
-        logging.info(composed_result)
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
