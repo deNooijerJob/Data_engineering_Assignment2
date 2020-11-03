@@ -122,6 +122,7 @@ def run ( argv=None, save_main_session=True):
                                                                         bucket_name=known_args.mbucket))
         )
 
+        composed_result = ((trump_sentiment, biden_sentiment) | 'Merge sentiments' >> beam.Flatten())
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
