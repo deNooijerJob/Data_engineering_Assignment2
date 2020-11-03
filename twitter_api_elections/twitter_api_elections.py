@@ -6,36 +6,75 @@ import time
 import tweepy
 from google.cloud import pubsub_v1
 from tweepy.streaming import StreamListener
-import credentials
+import credentials_julian
 
 # Config
 publisher = pubsub_v1.PublisherClient()
 topic_path_trump = publisher.topic_path("regal-welder-289207", "tweety_trump")
 topic_path_biden = publisher.topic_path("regal-welder-289207", "tweety_biden")
 
-auth = tweepy.OAuthHandler(credentials.CONSUMER_KEY, credentials.CONSUMER_SECRET)
-auth.set_access_token(credentials.ACCESS_TOKEN, credentials.ACCESS_SECRET)
+auth = tweepy.OAuthHandler(credentials_julian.CONSUMER_KEY, credentials_julian.CONSUMER_SECRET)
+auth.set_access_token(credentials_julian.ACCESS_TOKEN, credentials_julian.ACCESS_SECRET)
 
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
 
 # Define the list of terms to listen to
 election_hashtags = ["#Trump", "#DonaldTrump", "#Donald", "#Trump2020", "#TrumpPence", "#TrumpPence2020", "#Biden", "#BidenHarris", "#Joe", "#JoeBiden", "#BidenHarris2020", "#Biden2020"]
-trump_hashtags = ["#Trump", "#DonaldTrump", "#Donald", "#Trump2020", "#TrumpPence", "#TrumpPence2020"]
-biden_hashtags = ["#Biden", "#BidenHarris", "#Joe", "#JoeBiden", "#BidenHarris2020", "#Biden2020"]
+#trump_hashtags = ["#Trump", "#DonaldTrump", "#Donald", "#Trump2020", "#TrumpPence", "#TrumpPence2020"]
+#biden_hashtags = ["#Biden", "#BidenHarris", "#Joe", "#JoeBiden", "#BidenHarris2020", "#Biden2020"]
 
+
+#function to check topic of hashtags/tweet
+def hashtag_filter(data):
+    trump_hashtags = ["Trump", "DonaldTrump", "Donald", "Trump2020", "TrumpPence", "TrumpPence2020"]
+    biden_hashtags = ["Biden", "BidenHarris", "Joe", "JoeBiden", "BidenHarris2020", "Biden2020"]
+    outcome = []
+    hashtag = None
+ 
+    for i in data:
+        if i['text'] in trump_hashtags:
+            outcome.append('trump')
+        if i['text'] in biden_hashtags:
+             outcome.append('biden')
+
+    both_check = all(x in outcome for x in ['trump', 'biden'])
+
+    if both_check == True:
+        hashtag = 'both'
+    elif 'trump' in outcome:
+         hashtag = 'trump'
+    elif 'biden' in outcome:
+         hashtag = 'biden'
+    else:
+        hashtag = None
+
+    return hashtag
 
 # Method to push messages to pubsub
 def write_to_pubsub(data):
     try:
-        if data["lang"] == "en":
-            if data["hashtags"] in trump_hashtags:
+        if data["lang"] == "en": 
+            if hashtag_filter(data["hashtags"]) == 'trump':
                 publisher.publish(topic_path_trump, data=json.dumps({ # TODO change the output fields according to model
                     "text": data["text"],
                     "user_id": data["user_id"],
                     "id": data["id"],
                     "posted_at": datetime.datetime.fromtimestamp(data["created_at"]).strftime('%Y-%m-%d %H:%M:%S')
                 }).encode("utf-8"), tweet_id=str(data["id"]).encode("utf-8"))
-            elif data["hashtags"] in biden_hashtags:
+            if hashtag_filter(data["hashtags"]) == 'biden':
+                publisher.publish(topic_path_biden, data=json.dumps({ # TODO change the output fields according to model
+                    "text": data["text"],
+                    "user_id": data["user_id"],
+                    "id": data["id"],
+                    "posted_at": datetime.datetime.fromtimestamp(data["created_at"]).strftime('%Y-%m-%d %H:%M:%S')
+                }).encode("utf-8"), tweet_id=str(data["id"]).encode("utf-8"))
+            if hashtag_filter(data["hashtags"]) == 'both':
+                publisher.publish(topic_path_trump, data=json.dumps({ # TODO change the output fields according to model
+                    "text": data["text"],
+                    "user_id": data["user_id"],
+                    "id": data["id"],
+                    "posted_at": datetime.datetime.fromtimestamp(data["created_at"]).strftime('%Y-%m-%d %H:%M:%S')
+                }).encode("utf-8"), tweet_id=str(data["id"]).encode("utf-8"))
                 publisher.publish(topic_path_biden, data=json.dumps({ # TODO change the output fields according to model
                     "text": data["text"],
                     "user_id": data["user_id"],
@@ -98,6 +137,9 @@ class StdOutListener(StreamListener): # Don't touch this
         write_to_pubsub(reformat_tweet(data))
         self._counter += 1
         return True
+
+    def on_status(self, status):
+        print(status.text)
 
     def on_error(self, status):
         if status == 420:
