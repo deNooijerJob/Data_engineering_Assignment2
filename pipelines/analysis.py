@@ -67,7 +67,7 @@ class Sentiment_Analysis(beam.DoFn):
 
     def process(self, tweets):
         score = 0
-        for tweet in tweets:
+        for tweet in tweets: # tweets {useris : job, tweet: text}
             logging.info(tweet)  
             # Tokenize text
             x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet['text']]), maxlen=300)
@@ -106,25 +106,35 @@ def run ( argv=None, save_main_session=True):
     pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
 
     with beam.Pipeline(options=pipeline_options) as p:
-        trump_sentiment = (
+        trump_tweets = (
             p
             | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
                 query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
-            | 'Analyse sentiment trump' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
-                                                                          bucket_name=known_args.mbucket, name="Trump"))
         )
 
-        biden_sentiment = (
+        trump_sentiment = (
+                trump_tweets
+                | 'Analyse sentiment trump' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
+                                                                   bucket_name=known_args.mbucket, name="Trump"))
+        )
+
+        biden_tweets = (
                 p
                 | 'Query biden tweets' >> beam.io.Read(beam.io.BigQuerySource(
             query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
             use_standard_sql=True))
+        )
+
+        biden_sentiment = (
+                biden_tweets
                 | 'Analyse sentiment biden' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
-                                                                        bucket_name=known_args.mbucket, name="Biden"))
+                                                                             bucket_name=known_args.mbucket,
+                                                                             name="Biden"))
         )
 
         composed_result = ((trump_sentiment, biden_sentiment) | 'Merge sentiments' >> beam.Flatten())
+        logging.info(composed_result)
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
