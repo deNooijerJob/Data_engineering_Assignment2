@@ -161,10 +161,6 @@ def run(argv=None, save_main_session=True):
     parser.add_argument(
         '--table_name')
     args, pipeline_args = parser.parse_known_args(argv)
-    if args.topic is None and args.subscription is None:
-        parser.print_usage()
-        print(sys.argv[0] + ': error: one of --topic or --subscription is required')
-        sys.exit(1)
     options = PipelineOptions(pipeline_args)
 
     # We use the save_main_session option because one or more DoFn's in this
@@ -174,17 +170,17 @@ def run(argv=None, save_main_session=True):
     options.view_as(StandardOptions).streaming = True
     with beam.Pipeline(options=options) as p:
         # Read from PubSub into a PCollection.
-        if args.subscription:
-            tweets_trump = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(
+        if args.subscription_trump or args.subscription_biden:
+            tweets_trump = p | 'ReadPubSub_trump' >> beam.io.ReadFromPubSub(
                 subscription_trump=args.subscription_trump)
-            tweets_biden = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(
+            tweets_biden = p | 'ReadPubSub_biden' >> beam.io.ReadFromPubSub(
                 subscription_biden=args.subscription_biden)
         else:
-            tweets_trump = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(topic=args.topic_trump)
-            tweets_biden = p | 'ReadPubSub' >> beam.io.ReadFromPubSub(topic=args.topic_biden)
+            tweets_trump = p | 'ReadPubSub_trump' >> beam.io.ReadFromPubSub(topic=args.topic_trump)
+            tweets_biden = p | 'ReadPubSub_biden' >> beam.io.ReadFromPubSub(topic=args.topic_biden)
         '''
             first steps in the pipline
-        '''
+        '''       
         out_tweets_Trump = (
                 tweets_trump
                 | 'DecodeString Trump' >> beam.Map(lambda b: b.decode('utf-8'))  # make sure that the tweets are in utf-8 base
