@@ -136,7 +136,8 @@ class GetTweets(beam.PTransform):
 
 def run(argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--topic', type=str, help='Pub/Sub topic to read from')
+    parser.add_argument('--topic_trump', type=str, help='Pub/Sub topic to read from')
+    parser.add_argument('--topic_biden', type=str, help='Pub/Sub topic to read from')
 
     parser.add_argument(
         '--subscription_trump', type=str, help='Pub/Sub subscription to read from')
