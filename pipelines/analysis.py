@@ -65,22 +65,30 @@ class Sentiment_Analysis(beam.DoFn):
             return self.NEGATIVE if score < 0.5 else self.POSITIVE
 
 
-    def process(self, tweets):
+    def process(self, tweet):
         score = 0
-        for tweet in tweets:
-            logging.info(tweet)  
-            # Tokenize text
-            x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet['text']]), maxlen=300)
-            # Predict
-            score += self._model.predict([x_test])[0]
-            # Decode sentiment
+        logging.info(tweet)
+        # Tokenize text
+        x_test = pad_sequences(self._tokenizer.texts_to_sequences([tweet['tweet']]), maxlen=300)
+        # Predict
+        score += self._model.predict([x_test])[0]
+        # Decode sentiment
 
-        avg_score = score / len(tweets)
+        #avg_score = score / len(tweets)
         label = self.decode_sentiment(avg_score, include_neutral=True)
+        return score
+        #return {"name": self.name, "General Sentiment": label, "Average Score": float(avg_score)}
 
-        return {"name": self.name, "General Sentiment": label, "Average Score": float(avg_score)}
 
-
+class CalculateSentiment(beam.PTransform):
+    def __init__(self, name):
+        beam.PTransform.__init__(self)
+        self.name = name
+    def compute(self, pcoll):
+        return (
+            pcoll
+            | beam.Map(lambda elem)
+        )
 
 def run ( argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
@@ -111,7 +119,7 @@ def run ( argv=None, save_main_session=True):
             | 'Query trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
                 query='SELECT * FROM `data-engeneering-289509.tweetdata.trump`',
                 use_standard_sql=True))
-            | 'Analyse sentiment trump' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
+            | 'Analyse sentiment trump' >> beam.CominePerKey(Sentiment_Analysis(project_id=known_args.pid,
                                                                           bucket_name=known_args.mbucket, name="Trump"))
         )
 
@@ -120,12 +128,12 @@ def run ( argv=None, save_main_session=True):
                 | 'Query biden tweets' >> beam.io.Read(beam.io.BigQuerySource(
             query='SELECT * FROM `data-engeneering-289509.tweetdata.biden`',
             use_standard_sql=True))
-                | 'Analyse sentiment biden' >> beam.ParDo(Sentiment_Analysis(project_id=known_args.pid,
+                | 'Analyse sentiment biden' >> beam.CombinePerKey(Sentiment_Analysis(project_id=known_args.pid,
                                                                         bucket_name=known_args.mbucket, name="Biden"))
         )
 
         composed_result = ((trump_sentiment, biden_sentiment) | 'Merge sentiments' >> beam.Flatten())
-
+        logging.info(composed_result)
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     run()
