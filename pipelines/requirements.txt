@@ -9,3 +9,5 @@ pandas
 nltk
 google-cloud
 google-cloud-storage
+numpy
+matplotlib
