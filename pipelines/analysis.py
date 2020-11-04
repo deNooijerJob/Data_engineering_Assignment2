@@ -1,4 +1,3 @@
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -26,10 +25,11 @@ from keras.models import load_model
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.transforms import trigger
 
+#function to unpickle the model
 def unpickle():
         return pickle.load(open("downloaded_tokenizer.pkl", 'rb'))
 
-
+#translate the sentiment to a label
 def decode_sentiment(score, include_neutral=True):
     # SENTIMENT
     POSITIVE = "POSITIVE"
@@ -48,36 +48,37 @@ def decode_sentiment(score, include_neutral=True):
         return NEGATIVE if score < 0.5 else POSITIVE
 
 
-
+# analysis function
 def sentimentAnalysis (project_id, bucket_name, name, tweets):
     project_id = project_id
     bucket_name = bucket_name
     name = name
 
     logging.info("MyPredictDoFn initialisation. Load Model")
-    client = storage.Client(project=project_id)
+    client = storage.Client(project=project_id) #setup the storage 
     bucket = client.get_bucket(bucket_name)
 
-    blob_model = bucket.blob('models/model.h5')
+    blob_model = bucket.blob('models/model.h5') # get the models from the bucket
     blob_tokenizer = bucket.blob('models/tokenizer.pkl')
        
-    blob_model.download_to_filename('downloaded_model.h5')
+    blob_model.download_to_filename('downloaded_model.h5') # download 
     blob_tokenizer.download_to_filename('downloaded_tokenizer.pkl')
        
-    model = load_model('downloaded_model.h5')
+    model = load_model('downloaded_model.h5') #load
     tokenizer = unpickle()
 
-    score = 0
+    score = 0 # init score 
     for tweet in tweets:  # tweets {useris : job, tweet: text}
         # Tokenize text
-        x_test = pad_sequences(tokenizer.texts_to_sequences([tweet]), maxlen=300)
+        x_test = pad_sequences(tokenizer.texts_to_sequences([tweet]), maxlen=300) # pre analyse tweet
         # Predict
-        score += model.predict([x_test])[0]
+        score += model.predict([x_test])[0] # predict
 
     avg_score = score / len(tweets)
     label = decode_sentiment(avg_score, include_neutral=True) #decode sentiment
     return [{"Name": name, "sentiment": label, "Score": float(avg_score)}]
 
+# outputs the result
 def survey(bucket_name, pre_results):
     
     results = {'Sentiment': [np.round(pre_results[0]['Score'], 2), np.round(pre_results[1]['Score'], 2)]}
@@ -113,17 +114,11 @@ def survey(bucket_name, pre_results):
                     color=text_color, fontweight='bold')
     ax.legend(ncol=len(category_names), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', mode="expand", borderaxespad=0., frameon=False, fontsize=15)
     
-    #fig = plt.figure()
-    #fig_to_upload = plt.gcf()
-    
-    #buf = io.BytesIO()
-    plt.savefig('Sentiment_analysis_of_US_elections.png')
-    #buf.seek(0)
-    #image_as_a_string = base64.b64encode(buf.read())
+    plt.savefig('Sentiment_analysis_of_US_elections.png') # create figure
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob('results/Sentiment_analysis_of_US_elections.png')
-    contents = blob.upload_from_filename('Sentiment_analysis_of_US_elections.png')
+    contents = blob.upload_from_filename('Sentiment_analysis_of_US_elections.png') # store the figure on GCP storage
 
 def run ( argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
@@ -138,9 +133,9 @@ def run ( argv=None, save_main_session=True):
         dest='mbucket',
         help='model bucket name')
 
-    known_args, pipeline_args = parser.parse_known_args(argv)
+    known_args, pipeline_args = parser.parse_known_args(argv) # set the arguments
 
-    pipeline_options = PipelineOptions(
+    pipeline_options = PipelineOptions( # set the pipeline options
         flags=pipeline_args,
         project='data-engeneering-289509',
         temp_location='gs://data_engineering2020/tmp/',
@@ -149,6 +144,7 @@ def run ( argv=None, save_main_session=True):
     pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
 
     with beam.Pipeline(options=pipeline_options) as p:
+	# get all the tweets for trump
         trump_tweets = (
             p
             | 'Query Trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
@@ -156,7 +152,8 @@ def run ( argv=None, save_main_session=True):
                 use_standard_sql=True))
 	    | 'ExtractTweetsTrump' >> beam.Map(lambda elem: elem['tweet'])
         )
-
+	
+	#determine the sentiment
         trump_sentiment = (
             p
             | 'GetPID Trump' >> beam.Create([known_args.pid])
@@ -167,6 +164,7 @@ def run ( argv=None, save_main_session=True):
                 tweets=beam.pvalue.AsList(trump_tweets))
         )
         
+	# biden tweets
         biden_tweets = (
             p
             | 'Query Biden tweets' >> beam.io.Read(beam.io.BigQuerySource(
@@ -174,7 +172,7 @@ def run ( argv=None, save_main_session=True):
                 use_standard_sql=True))
             | 'ExtractTweetsBiden' >> beam.Map(lambda elem: elem['tweet'])
         )
-
+        # biden sentiment
         biden_sentiment = (
             p
             | 'GetProjectID Biden' >> beam.Create([known_args.pid])
@@ -185,6 +183,7 @@ def run ( argv=None, save_main_session=True):
                 tweets=beam.pvalue.AsList(biden_tweets))
         )
         
+	# combine the two results
         composed_result = (
             (trump_sentiment, biden_sentiment)
             | 'Merge sentiments' >> beam.Flatten()
@@ -193,7 +192,7 @@ def run ( argv=None, save_main_session=True):
         (
             p
             | 'GetBucketName' >> beam.Create([known_args.mbucket])
-            | 'Create Visualization' >> beam.FlatMap(survey, pre_results=beam.pvalue.AsList(composed_result))
+            | 'Create Visualization' >> beam.FlatMap(survey, pre_results=beam.pvalue.AsList(composed_result)) # create the visualisation
         )
 
 if __name__ == '__main__':
