@@ -36,6 +36,7 @@ REQUIRED_PACKAGES = [
     'google-cloud-storage',
     'tensorflow-transform',
     'tensorflow'
+    'matplotlib'
 ]
 setuptools.setup(
     name='predictionpl',

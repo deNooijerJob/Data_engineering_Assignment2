@@ -79,45 +79,51 @@ def sentimentAnalysis (project_id, bucket_name, name, tweets):
     return [{"Name": name, "sentiment": label, "Score": float(avg_score)}]
 
 def survey(bucket_name, pre_results):
-    logging.info(pre_results)
-    results = {'Sentiment': [pre_results[0]['Score'], pre_results[1]['Score']]}
+    
+    results = {'Sentiment': [np.round(pre_results[0]['Score'], 2), np.round(pre_results[1]['Score'], 2)]}
+    words = {'Word': [pre_results[0]['sentiment'], pre_results[1]['sentiment']]}
     category_names = [pre_results[0]['Name'], pre_results[1]['Name']]
     labels = list(results.keys())
     data = np.array(list(results.values()))
+    data2 = np.array(list(words.values()))
     data_cum = data.cumsum(axis=1)
-    category_colors = plt.get_cmap('RdBu_r')(
+    category_colors = plt.get_cmap('bwr_r')(
         np.linspace(0.15, 0.85, data.shape[1]))
 
     fig, ax = plt.subplots(figsize=(9.2, 5))
+    plt.margins(0,0)
     ax.invert_yaxis()
     ax.xaxis.set_visible(False)
     ax.set_xlim(0, np.sum(data, axis=1).max())
 
     for i, (colname, color) in enumerate(zip(category_names, category_colors)):
         widths = data[:, i]
+        widths2 = data2[:, i]
         starts = data_cum[:, i] - widths
         ax.barh(labels, widths, left=starts, height=0.5,
                 label=colname, color=color)
         xcenters = starts + widths / 2
 
-        text_color = 'black'
+        text_color = 'white'
         for y, (x, c) in enumerate(zip(xcenters, widths)):
             ax.text(x, y, str(c), ha='center', va='center',
                     color=text_color)
-    ax.legend(ncol=len(category_names), bbox_to_anchor=(0, 1),
-              loc='lower left', fontsize='small')
+        for y, (x, c) in enumerate(zip(xcenters, widths2)):    
+            ax.text(x, y-0.03, str(c), ha='center', va='center',
+                    color=text_color, fontweight='bold')
+    ax.legend(ncol=len(category_names), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', mode="expand", borderaxespad=0., frameon=False, fontsize=15)
     
     #fig = plt.figure()
     #fig_to_upload = plt.gcf()
     
     #buf = io.BytesIO()
-    plt.savefig('result.png')
+    plt.savefig('Sentiment_analysis_of_US_elections.png')
     #buf.seek(0)
     #image_as_a_string = base64.b64encode(buf.read())
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
-    blob = bucket.blob('results/result.png')
-    contents = blob.upload_from_filename('result.png')
+    blob = bucket.blob('results/Sentiment_analysis_of_US_elections.png')
+    contents = blob.upload_from_filename('Sentiment_analysis_of_US_elections.png')
 
 def run ( argv=None, save_main_session=True):
     parser = argparse.ArgumentParser()
