@@ -35,7 +35,7 @@ import setuptools
 REQUIRED_PACKAGES = [
     'google-cloud-storage',
     'tensorflow-transform',
-    'tensorflow'
+    'tensorflow',
     'matplotlib'
 ]
 setuptools.setup(

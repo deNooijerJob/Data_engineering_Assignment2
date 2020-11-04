@@ -161,7 +161,7 @@ def run(argv=None, save_main_session=True):
     parser.add_argument(
         '--table_name')
     args, pipeline_args = parser.parse_known_args(argv)
-    'options = PipelineOptions(pipeline_args)'
+    options = PipelineOptions(pipeline_args)
 
     # We use the save_main_session option because one or more DoFn's in this
     # workflow rely on global context (e.g., a module imported at module level).
@@ -204,7 +204,7 @@ def run(argv=None, save_main_session=True):
                 | 'getTweets Trump' >> GetTweets(args.allowed_lateness)  # get the tweets
                 | 'format output Trump' >> beam.Map(format_tweets)  # format the tweets
                 | 'store twitter posts Trump' >> WriteToBigQuery(  # write them to the db
-            args.table_name + '_tweets_trump',
+            args.table_name + '_trump',
             args.dataset, {
                 'tweet': 'STRING',
                 'user_id': 'STRING'  # timestamp not implemented
@@ -216,7 +216,7 @@ def run(argv=None, save_main_session=True):
                 | 'getTweets Biden' >> GetTweets(args.allowed_lateness)  # get the tweets
                 | 'format output Biden' >> beam.Map(format_tweets)  # format the tweets
                 | 'store twitter posts Biden' >> WriteToBigQuery(  # write them to the db
-            args.table_name + '_tweets_biden',
+            args.table_name + '_biden',
             args.dataset, {
                 'tweet': 'STRING',
                 'user_id': 'STRING'  # timestamp not implemented

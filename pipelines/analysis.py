@@ -142,8 +142,8 @@ def run ( argv=None, save_main_session=True):
 
     pipeline_options = PipelineOptions(
         flags=pipeline_args,
-        project='data-engineering2020',
-        temp_location='gs://data_engineering_2020/tmp/',
+        project='data-engeneering-289509',
+        temp_location='gs://data_engineering2020/tmp/',
         region='europe-west4')
 
     pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
@@ -152,7 +152,7 @@ def run ( argv=None, save_main_session=True):
         trump_tweets = (
             p
             | 'Query Trump tweets' >> beam.io.Read(beam.io.BigQuerySource(
-                query='SELECT `tweet` FROM `data-engineering2020.tweet_data.trump`',
+                query='SELECT `tweet` FROM `data-engeneering-289509.tweetdata.tweets_trump`',
                 use_standard_sql=True))
 	    | 'ExtractTweetsTrump' >> beam.Map(lambda elem: elem['tweet'])
         )
@@ -170,7 +170,7 @@ def run ( argv=None, save_main_session=True):
         biden_tweets = (
             p
             | 'Query Biden tweets' >> beam.io.Read(beam.io.BigQuerySource(
-                query='SELECT `tweet`  FROM `data-engineering2020.tweet_data.biden`',
+                query='SELECT `tweet`  FROM `data-engeneering-289509.tweetdata.tweets_biden`',
                 use_standard_sql=True))
             | 'ExtractTweetsBiden' >> beam.Map(lambda elem: elem['tweet'])
         )
