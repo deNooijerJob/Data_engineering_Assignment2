@@ -31,11 +31,11 @@ def unpickle():
 
 #translate the sentiment to a label
 def decode_sentiment(score, include_neutral=True):
-    # SENTIMENT
+    '''Decoding the sentiment value to a textual string'''
     POSITIVE = "POSITIVE"
     NEGATIVE = "NEGATIVE"
     NEUTRAL = "NEUTRAL"
-    SENTIMENT_THRESHOLDS = (0.4, 0.7)
+    SENTIMENT_THRESHOLDS = (0.4, 0.7) #defining what numerical values belong to what textual values
     if include_neutral:
         label = NEUTRAL
         if score <= SENTIMENT_THRESHOLDS[0]:
@@ -61,21 +61,21 @@ def sentimentAnalysis (project_id, bucket_name, name, tweets):
     blob_model = bucket.blob('models/model.h5') # get the models from the bucket
     blob_tokenizer = bucket.blob('models/tokenizer.pkl')
        
-    blob_model.download_to_filename('downloaded_model.h5') # download 
+    blob_model.download_to_filename('downloaded_model.h5') # download the model
     blob_tokenizer.download_to_filename('downloaded_tokenizer.pkl')
        
-    model = load_model('downloaded_model.h5') #load
+    model = load_model('downloaded_model.h5') #load the model
     tokenizer = unpickle()
 
     score = 0 # init score 
-    for tweet in tweets:  # tweets {useris : job, tweet: text}
+    for tweet in tweets:
         # Tokenize text
-        x_test = pad_sequences(tokenizer.texts_to_sequences([tweet]), maxlen=300) # pre analyse tweet
+        x_test = pad_sequences(tokenizer.texts_to_sequences([tweet]), maxlen=300) # pre analyse single tweet
         # Predict
-        score += model.predict([x_test])[0] # predict
+        score += model.predict([x_test])[0] # predict the sentiment
 
-    avg_score = score / len(tweets)
-    label = decode_sentiment(avg_score, include_neutral=True) #decode sentiment
+    avg_score = score / len(tweets) #calculating average sentiment
+    label = decode_sentiment(avg_score, include_neutral=True) #decode the general sentiment
     return [{"Name": name, "sentiment": label, "Score": float(avg_score)}]
 
 # outputs the result
@@ -89,7 +89,7 @@ def survey(bucket_name, pre_results):
     data2 = np.array(list(words.values()))
     data_cum = data.cumsum(axis=1)
     category_colors = plt.get_cmap('bwr_r')(
-        np.linspace(0.15, 0.85, data.shape[1]))
+        np.linspace(0.15, 0.85, data.shape[1])) #cmap bwr_r to represent color of the US electorial parties (democrats and republicans)
 
     fig, ax = plt.subplots(figsize=(9.2, 5))
     plt.margins(0,0)
@@ -106,15 +106,15 @@ def survey(bucket_name, pre_results):
         xcenters = starts + widths / 2
 
         text_color = 'white'
-        for y, (x, c) in enumerate(zip(xcenters, widths)):
+        for y, (x, c) in enumerate(zip(xcenters, widths)): #adding the numerical sentiment value to the horizontal stacked bar chart
             ax.text(x, y, str(c), ha='center', va='center',
                     color=text_color)
-        for y, (x, c) in enumerate(zip(xcenters, widths2)):    
+        for y, (x, c) in enumerate(zip(xcenters, widths2)): #adding the textual sentiment value to the horizental stacked bar chart
             ax.text(x, y-0.03, str(c), ha='center', va='center',
                     color=text_color, fontweight='bold')
-    ax.legend(ncol=len(category_names), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', mode="expand", borderaxespad=0., frameon=False, fontsize=15)
+    ax.legend(ncol=len(category_names), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', mode="expand", borderaxespad=0., frameon=False, fontsize=15) #adjusting the legend to represent the "tug of war" style representation
     
-    plt.savefig('Sentiment_analysis_of_US_elections.png') # create figure
+    plt.savefig('Sentiment_analysis_of_US_elections.png') # create picture (png)
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob('results/Sentiment_analysis_of_US_elections.png')
@@ -143,7 +143,7 @@ def run ( argv=None, save_main_session=True):
 
     pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
 
-    with beam.Pipeline(options=pipeline_options) as p:
+    with beam.Pipeline(options=pipeline_options) as p: #all the pipeline steps are described in detail in the report
 	# get all the tweets for trump
         trump_tweets = (
             p
